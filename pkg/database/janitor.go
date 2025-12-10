@@ -1,9 +1,8 @@
-package janitor
+package database
 
 import (
 	"log/slog"
 	"redis-lite/pkg/cfg"
-	"redis-lite/pkg/database"
 	"time"
 )
 
@@ -19,7 +18,7 @@ func NewJanitor(config *cfg.Config) *Janitor {
 	}
 }
 
-func (j *Janitor) Run(target *database.Store) {
+func (j *Janitor) Run(target *Store) {
 	ticker := time.NewTicker(j.Interval)
 	slog.Warn("Starting janitor ticker", "the interval of ", j.Interval.String())
 
@@ -29,11 +28,12 @@ func (j *Janitor) Run(target *database.Store) {
 			j.vacuum(target)
 		case <-j.stop:
 			j.Stop()
+			return
 		}
 	}
 }
 
-func (j *Janitor) vacuum(s *database.Store) {
+func (j *Janitor) vacuum(s *Store) {
 	now := time.Now().UnixNano()
 	for _, shard := range s.Shards {
 		shard.Mu.Lock()

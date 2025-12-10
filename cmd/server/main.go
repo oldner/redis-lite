@@ -1,11 +1,27 @@
 package main
 
 import (
-	"redis-lite/pkg/application"
+	"context"
+	"log/slog"
+	"os"
+	"os/signal"
+	"redis-lite/internal/server"
+	"redis-lite/pkg/cfg"
+	"redis-lite/pkg/database"
+	"syscall"
 )
 
 func main() {
-	app := application.NewApp()
+	config := cfg.NewConfig()
 
-	app.Run()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	db := database.NewStore()
+
+	srv := server.NewServer(config.Host, config.Port, db)
+
+	if err := srv.Run(ctx); err != nil {
+		slog.ErrorContext(ctx, "server exited properly", err)
+	}
 }
