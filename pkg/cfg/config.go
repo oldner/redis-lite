@@ -16,9 +16,10 @@ const (
 )
 
 type Config struct {
-	Host       string
-	Port       string
-	ServerType ServerType
+	Host            string
+	Port            string
+	ServerType      ServerType
+	JanitorInterval time.Duration
 }
 
 func NewConfig() *Config {
@@ -26,9 +27,10 @@ func NewConfig() *Config {
 		slog.Warn("No .env file found")
 	}
 	return &Config{
-		Host:       getEnv("HOST", "localhost"),
-		Port:       getEnv("PORT", "6379"),
-		ServerType: ServerType(getEnv("SERVER", "tcp")),
+		Host:            getEnv("HOST", "localhost"),
+		Port:            getEnv("PORT", "6379"),
+		ServerType:      ServerType(getEnv("SERVER", "tcp")),
+		JanitorInterval: getEnvDuration("JANITOR_INTERVAL", time.Minute),
 	}
 }
 
