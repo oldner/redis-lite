@@ -76,11 +76,26 @@ func runInteractiveLoop(conn net.Conn, prefix string) {
 		}
 
 		fmt.Fprintf(conn, "%s\n", text)
-		response, err := serverReader.ReadString('\n')
+		line1, err := serverReader.ReadString('\n')
 		if err != nil {
 			fmt.Println("Connection lost: ", err)
 			return
 		}
-		fmt.Print(response)
+
+		fmt.Print(line1)
+
+		if strings.HasPrefix(line1, "$") {
+			// special case: "$-1" means NULL (Key not found), so don't read more.
+			if strings.TrimSpace(line1) == "$-1" {
+				continue
+			}
+
+			line2, err := serverReader.ReadString('\n')
+			if err != nil {
+				fmt.Println("connection lost: ", err)
+				return
+			}
+			fmt.Println(line2)
+		}
 	}
 }

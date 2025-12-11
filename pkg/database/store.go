@@ -84,7 +84,6 @@ func (s *Store) Get(key string) (interface{}, bool) {
 	shard := s.getShard(key)
 
 	shard.Mu.RLock()
-	defer shard.Mu.Unlock()
 
 	item, exists := shard.Items[key]
 	if !exists {
@@ -94,17 +93,19 @@ func (s *Store) Get(key string) (interface{}, bool) {
 	// check if expired
 	if item.ExpiresAt > 0 && time.Now().UnixNano() > item.ExpiresAt {
 		// Delete item
+		shard.Mu.RUnlock()
 		s.Delete(key)
 		return nil, false
 	}
 
+	shard.Mu.RUnlock()
 	return item.Value, true
 }
 
 func (s *Store) Delete(key string) {
 	shard := s.getShard(key)
 
-	shard.Mu.RLock()
+	shard.Mu.Lock()
 	defer shard.Mu.Unlock()
 
 	delete(shard.Items, key)
