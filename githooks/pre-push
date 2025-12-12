@@ -1,0 +1,31 @@
+#!/bin/sh
+
+# This script runs auto before `git push`
+# It prevents pushing code that doesn't pass tests
+
+echo "Running pre-push checks.."
+
+# 1. Format Check
+echo "   Checking formatting.."
+formatted=$(gofmt -l .)
+if [ -n "$formatted" ]; then
+    echo "X Formatting check failed! The following files need formatting:"
+    echo "$formatted"
+    echo "Run 'go fmt ./...' to fix them."
+    exit 1
+fi
+
+# 2. Run tests with race condition
+echo "   Runnin tests..."
+go test -v -race ./...
+
+# capture the exit code of the test command
+RESULT=$?
+
+if [ $RESULT -ne 0 ]; then
+    echo "X Tests failed! Push aborted."
+    exit 1
+fi
+
+echo "All checks passed. Pushing to remote.."
+exit 0
