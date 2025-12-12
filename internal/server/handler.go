@@ -26,7 +26,7 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 		message, err := reader.ReadString('\n')
 		if err != nil {
 			if err != io.EOF {
-				slog.Error("Read error: ", err)
+				slog.ErrorContext(ctx, "Read error", "error", err)
 			}
 			return
 		}

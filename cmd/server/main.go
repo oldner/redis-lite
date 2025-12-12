@@ -22,6 +22,6 @@ func main() {
 	srv := server.NewServer(config.Host, config.Port, db)
 
 	if err := srv.Run(ctx); err != nil {
-		slog.ErrorContext(ctx, "server exited properly", err)
+		slog.ErrorContext(ctx, "server exited properly", "error", err)
 	}
 }
