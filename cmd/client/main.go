@@ -43,7 +43,7 @@ func main() {
 		}
 	}
 
-	addr := fmt.Sprintf("%s:%s", host, port)
+	addr := net.JoinHostPort(host, port)
 	fmt.Printf("Connecting to %s...", addr)
 
 	conn, err := net.Dial("tcp", addr)
