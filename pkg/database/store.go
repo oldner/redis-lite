@@ -1,6 +1,7 @@
 package database
 
 import (
+	"container/list"
 	"fmt"
 	"hash/fnv"
 	"sync"
@@ -103,18 +104,23 @@ func (s *Store) Get(key string) (interface{}, bool) {
 	return item.Value, true
 }
 
-func (s *Store) HSet(key, field, value string) (bool, error) {
+func (s *Store) HSet(key, field, value string, ttl time.Duration) (bool, error) {
 	shard := s.getShard(key)
 	shard.Mu.Lock()
 	defer shard.Mu.Unlock()
 
 	item, exists := shard.Items[key]
 
+	expiry := int64(0)
+	if ttl > 0 {
+		expiry = time.Now().Add(ttl).UnixNano()
+	}
+
 	if !exists {
 		shard.Items[key] = &Item{
 			Value:     map[string]string{field: value},
 			Type:      TypeHash,
-			ExpiresAt: 0,
+			ExpiresAt: expiry,
 		}
 		return true, nil
 	}
@@ -159,6 +165,122 @@ func (s *Store) HGet(key, field string) (string, bool) {
 
 	shard.Mu.RUnlock()
 	return val, ok
+}
+
+// LPush adds a value to the head of the list
+// Returns the new length of the list
+func (s *Store) LPush(key, value string, ttl time.Duration) (int, error) {
+	shard := s.getShard(key)
+
+	shard.Mu.Lock()
+	defer shard.Mu.Unlock()
+
+	expiry := int64(0)
+	if ttl > 0 {
+		expiry = time.Now().Add(ttl).UnixNano()
+	}
+
+	item, exists := shard.Items[key]
+	if !exists {
+		l := list.New()
+		l.PushFront(value)
+		shard.Items[key] = &Item{
+			Value:     l,
+			Type:      TypeList,
+			ExpiresAt: expiry,
+		}
+		return 1, nil
+	}
+
+	if item.Type != TypeList {
+		return 0, fmt.Errorf("WRONGTYPE Operation against a key holding the wrong kind of value")
+	}
+
+	l := item.Value.(*list.List)
+	l.PushFront(value)
+
+	return l.Len(), nil
+}
+
+// LPop removes and returns the first element of the list
+func (s *Store) LPop(key string) (string, bool) {
+	shard := s.getShard(key)
+	shard.Mu.RLock()
+	defer shard.Mu.RUnlock()
+
+	item, exists := shard.Items[key]
+	if !exists {
+		return "", false
+	}
+
+	if item.Type != TypeList {
+		return "", false
+	}
+
+	l := item.Value.(*list.List)
+	if l.Len() == 0 {
+		return "", false
+	}
+
+	element := l.Front()
+	val := element.Value.(string)
+
+	l.Remove(element)
+
+	if l.Len() == 0 {
+		delete(shard.Items, key)
+	}
+
+	return val, true
+}
+
+func (s *Store) LRange(key string, start, stop int) ([]string, bool) {
+	shard := s.getShard(key)
+	shard.Mu.RLock()
+	defer shard.Mu.RUnlock()
+
+	item, exists := shard.Items[key]
+	if !exists {
+		return nil, false
+	}
+
+	if item.Type != TypeList {
+		return nil, false
+	}
+
+	l := item.Value.(*list.List)
+	length := l.Len()
+
+	// handle negative
+	if start < 0 {
+		start = length + start
+		if start < 0 {
+			start = 0
+		}
+	}
+	if stop < 0 {
+		stop = length + stop
+	}
+
+	result := make([]string, 0, stop-start+1)
+
+	current := l.Front()
+	i := 0
+
+	// skip until 'start'
+	for i < start && current != nil {
+		current = current.Next()
+		i++
+	}
+
+	// collect until 'stop'
+	for i < stop && current != nil {
+		result = append(result, current.Value.(string))
+		current = current.Next()
+		i++
+	}
+
+	return result, true
 }
 
 func (s *Store) Delete(key string) {

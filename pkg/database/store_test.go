@@ -1,6 +1,7 @@
 package database
 
 import (
+	"redis-lite/pkg/utils"
 	"sync"
 	"testing"
 	"time"
@@ -22,6 +23,64 @@ func TestSetGet(t *testing.T) {
 
 	if got != val {
 		t.Errorf("Expected %v, got %v", val, got)
+	}
+}
+
+func TestHSetHGet(t *testing.T) {
+	s := NewStore()
+	key := "foo"
+	field := "foofield"
+	val := "bar"
+	expiry := "1m"
+
+	ttl := utils.ParseDuration(expiry)
+
+	// 1. Test HSet
+	s.HSet(key, field, val, ttl)
+
+	// 2. Test Get
+	got, found := s.HGet(key, field)
+	if !found {
+		t.Fatalf("Expected key %s or field %s to exist", key, field)
+	}
+
+	if got != val {
+		t.Errorf("Expected %v, got %v", val, got)
+	}
+}
+
+func TestLPushLPopLRange(t *testing.T) {
+	s := NewStore()
+	key := "foo"
+	val := "bar"
+	expiry := "1m"
+
+	ttl := utils.ParseDuration(expiry)
+
+	// 1. Test LPush
+	s.LPush(key, val, ttl)
+
+	// 2. Test LPop
+	got, found := s.LPop(key)
+	if !found {
+		t.Fatalf("Expected key %s to exist", key)
+	}
+
+	if got != val {
+		t.Errorf("Expected %v, got %v", val, got)
+	}
+
+	// 3. Test LRange
+	s.LPush(key, val, ttl)
+	s.LPush(key, val, ttl)
+
+	list, ok := s.LRange(key, 0, 2)
+	if !ok {
+		t.Errorf("Expected %v, got %v", val, got)
+	}
+
+	if len(list) != 2 {
+		t.Errorf("Expected 2 values but got %d", len(list))
 	}
 }
 
