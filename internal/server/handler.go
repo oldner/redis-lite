@@ -76,10 +76,45 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 					response = fmt.Sprintf("$%d\r\n%v\r\n", len(fmt.Sprint(val)), val)
 				}
 			}
+		case "HSET":
+			// syntax HSET key field value
+			if len(args) < 4 {
+				response = "-ERR wrong number of arguments for `hset` command\r\n"
+			} else {
+				key := args[1]
+				field := args[2]
+				value := args[3]
+
+				created, err := s.DB.HSet(key, field, value)
+				if err != nil {
+					response = "-ERR" + err.Error() + "\r\n"
+				} else {
+					if created {
+						response = ":1\r\n"
+					} else {
+						response = ":0\r\n"
+					}
+				}
+			}
+		case "HGET":
+			// syntax HGET key field
+			if len(args) < 3 {
+				response = "-ERR wrong number of arguments for `hget` command\r\n"
+			} else {
+				key := args[1]
+				field := args[2]
+
+				val, exists := s.DB.HGet(key, field)
+				if !exists {
+					response = "$-1\r\n"
+				} else {
+					response = fmt.Sprintf("$%d\r\n%s\r\n", len(val), val)
+				}
+			}
 		case "DEL":
 			// syntax: DEL key
 			if len(args) < 2 {
-				response = "-ERR wrong number of arguments for `get` command\r\n"
+				response = "-ERR wrong number of arguments for `del` command\r\n"
 			}
 			key := args[1]
 

@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"hash/fnv"
 	"sync"
 	"time"
@@ -100,6 +101,64 @@ func (s *Store) Get(key string) (interface{}, bool) {
 
 	shard.Mu.RUnlock()
 	return item.Value, true
+}
+
+func (s *Store) HSet(key, field, value string) (bool, error) {
+	shard := s.getShard(key)
+	shard.Mu.Lock()
+	defer shard.Mu.Unlock()
+
+	item, exists := shard.Items[key]
+
+	if !exists {
+		shard.Items[key] = &Item{
+			Value:     map[string]string{field: value},
+			Type:      TypeHash,
+			ExpiresAt: 0,
+		}
+		return true, nil
+	}
+
+	if item.Type != TypeHash {
+		return false, fmt.Errorf("WRONGTYPE Operation against a key holding the wrong kind of value")
+	}
+
+	hash := item.Value.(map[string]string)
+
+	_, fieldExists := hash[field]
+	hash[field] = value
+
+	return !fieldExists, nil
+}
+
+func (s *Store) HGet(key, field string) (string, bool) {
+	shard := s.getShard(key)
+
+	shard.Mu.RLock()
+
+	item, exists := shard.Items[key]
+	if !exists {
+		return "", false
+	}
+
+	// check if expired
+	if item.ExpiresAt > 0 && time.Now().UnixNano() > item.ExpiresAt {
+		// Delete item
+		shard.Mu.RUnlock()
+		s.Delete(key)
+		return "", false
+	}
+
+	// Check type (If it's a String, you can't HGET it)
+	if item.Type != TypeHash {
+		return "", false
+	}
+
+	hash := item.Value.(map[string]string)
+	val, ok := hash[field]
+
+	shard.Mu.RUnlock()
+	return val, ok
 }
 
 func (s *Store) Delete(key string) {
