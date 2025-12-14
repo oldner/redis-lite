@@ -84,6 +84,31 @@ func TestLPushLPopLRange(t *testing.T) {
 	}
 }
 
+func TestSAddSMembersSIsMember(t *testing.T) {
+	s := NewStore()
+	key := "foo"
+	members := []string{"bar1", "bar2"}
+
+	_, err := s.SAdd(key, members)
+	if err != nil {
+		t.Errorf("Error while SAdd: %s", err.Error())
+	}
+
+	addedMembers, ok := s.SMembers(key)
+	if !ok {
+		t.Errorf("Error while getting key %s addedMembers", key)
+	}
+
+	if len(addedMembers) != 2 {
+		t.Errorf("addedMembers for %s key, must be 2", key)
+	}
+
+	member, ok := s.SIsMember(key, "bar1")
+	if !ok || member == 0 {
+		t.Errorf("key %s SIsMember couldn't run.", key)
+	}
+}
+
 func TestExpiration(t *testing.T) {
 	s := NewStore()
 	key := "shortlived"

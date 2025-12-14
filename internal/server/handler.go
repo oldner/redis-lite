@@ -175,6 +175,51 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 					response = sb.String()
 				}
 			}
+		case "SADD":
+			// syntax: SADD key member [member ...]
+			if len(args) < 3 {
+				response = "-ERR wrong number of arguments for `hget` command\r\n"
+			} else {
+				key := args[1]
+				members := args[2:]
+
+				added, err := s.DB.SAdd(key, members)
+				if err != nil {
+					response = "-ERR" + err.Error() + "\r\n"
+				} else {
+					response = fmt.Sprintf(":%d\r\n", added)
+				}
+			}
+		case "SMEMBERS":
+			// syntax: SMEMBERS key
+			if len(args) < 2 {
+				response = "-ERR wrong number of arguments for `hget` command\r\n"
+			} else {
+				key := args[1]
+
+				members, ok := s.DB.SMembers(key)
+				if !ok {
+					response = "*0\r\n"
+				} else {
+					var sb strings.Builder
+					sb.WriteString(fmt.Sprintf("*%d\r\n", len(members)))
+					for _, m := range members {
+						sb.WriteString((fmt.Sprintf("$%d\r\n%s\r\n", len(m), m)))
+					}
+					response = sb.String()
+				}
+			}
+		case "SISMEMBER":
+			// syntax: SISMEMBER key member
+			if len(args) < 3 {
+				response = "-ERR wrong number of arguments for `hget` command\r\n"
+			} else {
+				key := args[1]
+				member := args[2]
+
+				val, _ := s.DB.SIsMember(key, member)
+				response = fmt.Sprintf(":%d\r\n", val)
+			}
 		case "DEL":
 			// syntax: DEL key
 			if len(args) < 2 {

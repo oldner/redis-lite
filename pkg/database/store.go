@@ -283,6 +283,90 @@ func (s *Store) LRange(key string, start, stop int) ([]string, bool) {
 	return result, true
 }
 
+// SAdd adds one or more members to a set
+func (s *Store) SAdd(key string, members []string) (int, error) {
+	shard := s.getShard(key)
+	shard.Mu.Lock()
+	defer shard.Mu.Unlock()
+
+	item, exists := shard.Items[key]
+
+	if !exists {
+		set := make(map[string]struct{})
+		for _, m := range members {
+			set[m] = struct{}{}
+		}
+
+		shard.Items[key] = &Item{
+			Value:     set,
+			Type:      TypeSet,
+			ExpiresAt: 0,
+		}
+		return len(members), nil
+	}
+
+	if item.Type != TypeSet {
+		return 0, fmt.Errorf("WRONGTYPE Operation against a key holding the wrong kind of value")
+	}
+
+	set := item.Value.(map[string]struct{})
+	addedCount := 0
+
+	for _, m := range members {
+		// check if already exists
+		if _, exists := set[m]; !exists {
+			set[m] = struct{}{}
+			addedCount++
+		}
+	}
+
+	return addedCount, nil
+}
+
+// SMembers checks if a member exists in the set
+func (s *Store) SMembers(key string) ([]string, bool) {
+	shard := s.getShard(key)
+	shard.Mu.RLock()
+	defer shard.Mu.RUnlock()
+
+	item, exists := shard.Items[key]
+	if !exists {
+		return []string{}, false
+	}
+
+	set := item.Value.(map[string]struct{})
+	members := make([]string, 0, len(set))
+
+	for m := range set {
+		members = append(members, m)
+	}
+
+	return members, true
+}
+
+// SIsMember checks if a member exists in the set
+func (s *Store) SIsMember(key, member string) (int, bool) {
+	shard := s.getShard(key)
+	shard.Mu.RLock()
+	defer shard.Mu.RUnlock()
+
+	item, exists := shard.Items[key]
+	if !exists {
+		return 0, false
+	}
+
+	if item.Type != TypeSet {
+		return 0, false
+	}
+
+	set := item.Value.(map[string]struct{})
+	if _, ok := set[member]; ok {
+		return 1, true
+	}
+
+	return 0, true
+}
+
 func (s *Store) Delete(key string) {
 	shard := s.getShard(key)
 
