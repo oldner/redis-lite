@@ -5,19 +5,22 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"redis-lite/pkg/aof"
 	"redis-lite/pkg/database"
 )
 
 type Server struct {
 	ConfigAddr string
 	DB         *database.Store
+	Aof        *aof.Aof
 }
 
-func NewServer(host, port string, db *database.Store) *Server {
+func NewServer(host, port string, db *database.Store, aof *aof.Aof) *Server {
 	addr := fmt.Sprintf("%s:%s", host, port)
 	return &Server{
 		ConfigAddr: addr,
 		DB:         db,
+		Aof:        aof,
 	}
 }
 

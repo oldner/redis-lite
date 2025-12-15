@@ -20,6 +20,7 @@ type Config struct {
 	Port            string
 	ServerType      ServerType
 	JanitorInterval time.Duration
+	AofPath         string
 }
 
 func NewConfig() *Config {
@@ -31,6 +32,7 @@ func NewConfig() *Config {
 		Port:            getEnv("PORT", "6379"),
 		ServerType:      ServerType(getEnv("SERVER", "tcp")),
 		JanitorInterval: getEnvDuration("JANITOR_INTERVAL", time.Minute),
+		AofPath:         getEnv("AOF_PATH", "aof"),
 	}
 }
 
