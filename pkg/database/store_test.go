@@ -1,7 +1,6 @@
 package database
 
 import (
-	"redis-lite/pkg/utils"
 	"sync"
 	"testing"
 	"time"
@@ -31,9 +30,7 @@ func TestHSetHGet(t *testing.T) {
 	key := "foo"
 	field := "foofield"
 	val := "bar"
-	expiry := "1m"
-
-	ttl := utils.ParseDuration(expiry)
+	ttl := time.Minute
 
 	// 1. Test HSet
 	s.HSet(key, field, val, ttl)
@@ -53,9 +50,7 @@ func TestLPushLPopLRange(t *testing.T) {
 	s := NewStore()
 	key := "foo"
 	val := "bar"
-	expiry := "1m"
-
-	ttl := utils.ParseDuration(expiry)
+	ttl := time.Minute
 
 	// 1. Test LPush
 	s.LPush(key, val, ttl)
@@ -158,5 +153,4 @@ func TestConcurrency(t *testing.T) {
 	}
 
 	wg.Wait()
-	// If the test finishes without panicking or race conditions, we pass.
 }
