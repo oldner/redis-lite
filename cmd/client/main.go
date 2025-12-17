@@ -9,93 +9,88 @@ import (
 )
 
 func main() {
-	host := "localhost"
-	port := "6379"
-
-	args := os.Args[1:]
-
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-
-		switch {
-		case arg == "--host":
-			if i+1 < len(args) {
-				host = args[i+1]
-				i++ // skip next item since we consumed it as value
-			} else {
-				fmt.Println("Error: --host requires a value")
-				os.Exit(1)
-			}
-		case arg == "--port":
-			if i+1 < len(args) {
-				port = args[i+1]
-				i++
-			} else {
-				fmt.Println("Error: --host requires a value")
-				os.Exit(1)
-			}
-		case arg == "--help":
-			fmt.Println("Usage: client --host <ip> --port <port>")
-			return
-		default:
-			fmt.Printf("Unknown argument: %s\n", arg)
-			os.Exit(1)
-		}
-	}
-
-	addr := net.JoinHostPort(host, port)
-	fmt.Printf("Connecting to %s...", addr)
-
-	conn, err := net.Dial("tcp", addr)
+	conn, err := net.Dial("tcp", "localhost:6379")
 	if err != nil {
-		fmt.Printf("Failed to connect: %v\n", addr)
+		fmt.Printf("Could not connect to server: %v\n", err)
 		os.Exit(1)
 	}
 	defer conn.Close()
 
-	runInteractiveLoop(conn, addr)
-}
-
-func runInteractiveLoop(conn net.Conn, prefix string) {
 	reader := bufio.NewReader(os.Stdin)
 	serverReader := bufio.NewReader(conn)
 
-	fmt.Println("Connected! Enter a command: ")
+	fmt.Println("Redis-Lite Client")
+	fmt.Println("Type commands (e.g., SET key val, SUBSCRIBE news, PUBLISH news hello)")
+	fmt.Println("Type 'exit' to quit.")
 
 	for {
-		fmt.Print(prefix + "> ")
-		text, _ := reader.ReadString('\n')
-		text = strings.TrimSpace(text)
-
-		if text == "exit" || text == "quit" {
+		fmt.Print("redis-lite> ")
+		input, err := reader.ReadString('\n')
+		if err != nil {
 			break
 		}
 
-		if text == "" {
+		line := strings.TrimSpace(input)
+		if line == "" {
 			continue
 		}
-
-		fmt.Fprintf(conn, "%s\n", text)
-		line1, err := serverReader.ReadString('\n')
-		if err != nil {
-			fmt.Println("Connection lost: ", err)
-			return
+		if strings.ToLower(line) == "exit" {
+			break
 		}
 
-		fmt.Print(line1)
+		// Note: We add \n because our server uses ReadString('\n')
+		_, err = conn.Write([]byte(line + "\n"))
+		if err != nil {
+			fmt.Printf("Error writing to server: %v\n", err)
+			break
+		}
 
-		if strings.HasPrefix(line1, "$") {
-			// special case: "$-1" means NULL (Key not found), so don't read more.
-			if strings.TrimSpace(line1) == "$-1" {
-				continue
+		// Handle Subscription Mode
+		// If the user typed SUBSCRIBE, we enter a special "Listen" loop
+		if strings.HasPrefix(strings.ToUpper(line), "SUBSCRIBE") {
+			fmt.Println("Entering subscription mode. Press Ctrl+C to exit client.")
+			for {
+				// The server will push RESP arrays continuously
+				response, err := serverReader.ReadString('\n')
+				if err != nil {
+					fmt.Printf("\nConnection lost: %v\n", err)
+					return
+				}
+				// Clean up and print the raw RESP
+				fmt.Print(strings.ReplaceAll(response, "\r", ""))
 			}
+		}
 
-			line2, err := serverReader.ReadString('\n')
-			if err != nil {
-				fmt.Println("connection lost: ", err)
-				return
-			}
-			fmt.Println(line2)
+		// Handle Standard Response
+		// Read the single response from the server
+		response, err := serverReader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("Error reading from server: %v\n", err)
+			break
+		}
+
+		// Basic RESP Pretty-printing
+		// +OK -> OK
+		// -ERR -> (error) ERR
+		// :1 -> (integer) 1
+		// $5\r\nhello -> hello
+		output := strings.TrimSpace(response)
+		if strings.HasPrefix(output, "+") {
+			fmt.Println(output[1:])
+		} else if strings.HasPrefix(output, "-") {
+			fmt.Println("(error)", output[1:])
+		} else if strings.HasPrefix(output, ":") {
+			fmt.Println("(integer)", output[1:])
+		} else if strings.HasPrefix(output, "$") {
+			// It's a bulk string. Read the next line for the actual content.
+			content, _ := serverReader.ReadString('\n')
+			fmt.Print(strings.ReplaceAll(content, "\r", ""))
+		} else if strings.HasPrefix(output, "*") {
+			// It's an array. For simplicity, we'll just print the raw count
+			// In a real client, you'd loop and read the items.
+			fmt.Printf("(array of %s items)\n", output[1:])
+		} else {
+			fmt.Println(output)
 		}
 	}
 }
