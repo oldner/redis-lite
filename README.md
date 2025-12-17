@@ -4,7 +4,7 @@
 ![Build Status](https://github.com/oldner/redis-lite/actions/workflows/go.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Redis-Lite** is a lightweight, multi-threaded, in-memory key-value store built from scratch in Go. 
+**Redis-Lite** is a lightweight, multi-threaded, in-memory key-value store built from scratch in Go. This project is developed to see how **Redis** works under the hooks. It is a personal project.
 
 It is designed to showcase core backend engineering concepts: **TCP networking**, **Concurrency (Mutexes & Goroutines)**, **Sharding**, and **Protocol Parsing (RESP)**.
 
@@ -15,12 +15,20 @@ It is designed to showcase core backend engineering concepts: **TCP networking**
 - **RESP Compatible**: Speaks the Redis Serialization Protocol (can connect via `redis-cli`).
 - **TTL Support**: Keys automatically expire after a set duration.
 - **Supported Commands**:
+  - `PING`
   - `SET key value [ttl]`
   - `GET key`
   - `DEL key`
   - `HSET key field value`
   - `HGET key field`
-  - `PING`
+  - `LPUSH key value`
+  - `LPOP key`
+  - `LRANGE key start stop`
+  - `SADD key ...members`
+  - `SMEMBERS key`
+  - `SISMEMBER key member`
+  - `SUBSCRIBE topic`
+  - `PUBLISH topic message`
 
 ## 🛠️ Installation & Usage
 
@@ -43,12 +51,12 @@ We include a simple CLI tool to interact with the server:
 
 ```bash
 # Open a new terminal
-go run cmd/client/main.go --host localhost --port 6379
+go run cmd/client/main.go
 
 > SET mykey "Hello World"
-+OK
+OK
 > GET mykey
-$11
+11
 Hello World
 ```
 
