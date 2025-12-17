@@ -37,12 +37,14 @@ type Shard struct {
 // Store is the main database struct.
 type Store struct {
 	Shards []*Shard
+	PubSub *PubSub
 }
 
 // NewStore initializes the DB.
 func NewStore() *Store {
 	s := &Store{
 		Shards: make([]*Shard, ShardCount),
+		PubSub: NewPubSub(),
 	}
 	for i := 0; i < ShardCount; i++ {
 		s.Shards[i] = &Shard{

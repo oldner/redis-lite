@@ -165,7 +165,13 @@ func Eval(db *database.Store, args []string) []byte {
 			sb.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(m), m))
 		}
 		return []byte(sb.String())
-
+	case "PUBLISH":
+		// syntax: PUBLISH topic message
+		if len(args) < 3 {
+			return errArgLen("PUBLISH")
+		}
+		count := db.PubSub.Publish(args[1], args[2])
+		return []byte(fmt.Sprintf(":%d\r\n", count))
 	default:
 		return []byte(fmt.Sprintf("-ERR unknown command '%s'\r\n", cmd))
 	}
